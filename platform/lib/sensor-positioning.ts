@@ -1,5 +1,33 @@
 import * as THREE from 'three'
 
+// Define EPOC X sensor positions based on 10-20 system
+const EPOC_POSITIONS = {
+  // Left hemisphere
+  'AF3': { x: -0.3, y: 0.8, z: 0.4 },   // Anterior Frontal
+  'F7':  { x: -0.7, y: 0.6, z: 0.2 },   // Frontal
+  'F3':  { x: -0.4, y: 0.7, z: 0.3 },   // Frontal
+  'FC5': { x: -0.6, y: 0.5, z: 0.0 },   // Fronto-Central
+  'T7':  { x: -0.8, y: 0.2, z: 0.0 },   // Temporal
+  'P7':  { x: -0.7, y: 0.2, z: -0.4 },  // Parietal
+  'O1':  { x: -0.3, y: 0.2, z: -0.8 },  // Occipital
+
+  // Right hemisphere
+  'AF4': { x: 0.3, y: 0.8, z: 0.4 },    // Anterior Frontal
+  'F8':  { x: 0.7, y: 0.6, z: 0.2 },    // Frontal
+  'F4':  { x: 0.4, y: 0.7, z: 0.3 },    // Frontal
+  'FC6': { x: 0.6, y: 0.5, z: 0.0 },    // Fronto-Central
+  'T8':  { x: 0.8, y: 0.2, z: 0.0 },    // Temporal
+  'P8':  { x: 0.7, y: 0.2, z: -0.4 },   // Parietal
+  'O2':  { x: 0.3, y: 0.2, z: -0.8 },   // Occipital
+}
+
+export function getEpocSensorPositions() {
+  return Object.entries(EPOC_POSITIONS).map(([name, pos]) => ({
+    name,
+    position: pos
+  }))
+}
+
 // Improved Fibonacci sphere algorithm for more even distribution
 export function generateSpherePoints(numPoints: number, radius: number) {
   const points: THREE.Vector3[] = []

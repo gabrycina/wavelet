@@ -8,7 +8,7 @@ export async function GET(req: Request) {
 
       function send() {
         const eegData = {
-          data: Array.from({ length: 65 }, () => ({
+          data: Array.from({ length: 14 }, () => ({
             value: Math.random() * 4 - 2
           }))
         }
@@ -18,7 +18,6 @@ export async function GET(req: Request) {
         counter++
       }
 
-      // Send initial data
       send()
 
       const timer = setInterval(() => {
@@ -28,9 +27,8 @@ export async function GET(req: Request) {
           clearInterval(timer)
           controller.close()
         }
-      }, 100)
+      }, 200)
 
-      // Keep connection alive
       req.signal.addEventListener('abort', () => {
         clearInterval(timer)
         controller.close()
