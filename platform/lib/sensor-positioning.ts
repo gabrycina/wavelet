@@ -4,24 +4,15 @@ import * as THREE from 'three'
 export function generateSpherePoints(numPoints: number, radius: number) {
   const points: THREE.Vector3[] = []
   
-  // Golden angle in radians
-  const phi = Math.PI * (3 - Math.sqrt(5))
-  // Distance between points, normalized to [0, 1]
-  const increment = 1.0 / numPoints
-  
+  // Create points in a cap pattern
   for (let i = 0; i < numPoints; i++) {
-    // Modified to create a ring pattern
-    const y = ((i * increment)) * 0.5 + 0.3  // Height range from 0.3 to 0.8
-    const radiusAtY = Math.sqrt(1 - y * y)
-    
-    const theta = phi * i
+    // Use polar coordinates to create a cap shape
+    const phi = Math.acos(1 - (i / numPoints) * 0.5) // Range from 0 to ~1.0 radians
+    const theta = i * Math.PI * (3 - Math.sqrt(5)) // Golden angle
 
-    // Ensure minimum distance from center by scaling radiusAtY
-    const minRadius = 0.6 // Minimum distance from center axis
-    const scaledRadius = radiusAtY * (minRadius + (1 - minRadius))
-
-    const x = Math.cos(theta) * scaledRadius
-    const z = Math.sin(theta) * scaledRadius
+    const x = Math.sin(phi) * Math.cos(theta)
+    const y = Math.cos(phi)
+    const z = Math.sin(phi) * Math.sin(theta)
 
     points.push(new THREE.Vector3(
       x * radius,
