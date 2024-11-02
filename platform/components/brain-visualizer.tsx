@@ -48,8 +48,10 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const brainRef = useRef<THREE.Group | null>(null)
-  const spikesRef = useRef<THREE.Object3D[]>([])
+  const sensorMeshesRef = useRef<THREE.Mesh[]>([])
+  const spikeMeshesRef = useRef<THREE.Mesh[]>([])
   const animationFrameRef = useRef<number>()
+  const validPointsRef = useRef<THREE.Vector3[]>([])
 
   // Setup scene, lights, and load brain model - only once
   useEffect(() => {
@@ -185,94 +187,89 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
     }
   }, []) // Empty dependency array
 
-  // Update spikes when sensor data changes
+  // Update sensor and spike positions
   useEffect(() => {
-    if (!sceneRef.current || !sensorData?.sensors || !brainRef.current || !cameraRef.current) return
-    
-    // Remove old spikes
-    spikesRef.current.forEach(spike => {
-      sceneRef.current?.remove(spike)
-      spike.geometry.dispose()
-      if (spike.material instanceof THREE.Material) {
-        spike.material.dispose()
-      }
-    })
-    spikesRef.current = []
+    if (!sensorData?.sensors || !brainRef.current || !sceneRef.current) return
 
-    // Find the brain mesh
-    let brainMesh: THREE.Mesh | null = null
-    brainRef.current.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        brainMesh = child
-      }
+    // Clear old meshes efficiently
+    const scene = sceneRef.current
+    sensorMeshesRef.current.forEach(mesh => {
+      scene.remove(mesh)
+      mesh.geometry.dispose()
+      mesh.material instanceof THREE.Material && mesh.material.dispose()
     })
+    spikeMeshesRef.current.forEach(mesh => {
+      scene.remove(mesh)
+      mesh.geometry.dispose()
+      mesh.material instanceof THREE.Material && mesh.material.dispose()
+    })
+    sensorMeshesRef.current = []
+    spikeMeshesRef.current = []
 
+    // Reuse geometries and materials
+    const sensorGeometry = new THREE.SphereGeometry(options.sensorSize, 16, 16)
+    const sensorMaterial = new THREE.MeshPhongMaterial({
+      color: new THREE.Color(options.colors.sensor),
+      emissive: new THREE.Color(options.colors.sensor),
+      emissiveIntensity: 0.5
+    })
+    const spikeBaseGeometry = new THREE.CylinderGeometry(0.2, 0, 1, 8) // Base geometry to scale
+
+    const brainMesh = brainRef.current?.children[0] as THREE.Mesh
     if (!brainMesh) return
 
-    // Create new spikes for each sensor
+    // Batch process sensors
     sensorData.sensors.forEach((sensor, i) => {
-      // Create initial sensor position vector
+      if (!sensor.position) return
+
       const initialPos = new THREE.Vector3(
-        sensor.position.x * options.scale.sensor,
-        sensor.position.y * options.scale.sensor,
-        sensor.position.z * options.scale.sensor
+        sensor.position.x * options.scale.sensor * 0.5,
+        sensor.position.y * options.scale.sensor * 0.5,
+        sensor.position.z * options.scale.sensor * 0.5
       )
 
-      // Map the point to the brain surface
       const mappedPosition = mapPointToBrainSurface(
         initialPos,
         brainMesh,
         cameraRef.current!,
-        0.5 // offset from surface
-      )
+        0.5
+      ) || initialPos.normalize().multiplyScalar(15)
 
-      if (mappedPosition) {
-        // Create sensor sphere at mapped position
-        const sensorGeometry = new THREE.SphereGeometry(0.8, 16, 16)  // Smaller size
-        const sensorMaterial = new THREE.MeshPhongMaterial({
-          color: 0x444444,        // Dark gray
-          emissive: 0x222222,     // Darker emissive
-          emissiveIntensity: 0.5,
-          transparent: true,
-          opacity: 0.95,
-          shininess: 30
-        })
-        const sensorMesh = new THREE.Mesh(sensorGeometry, sensorMaterial)
-        sensorMesh.position.copy(mappedPosition)
-        sceneRef.current?.add(sensorMesh)
-        spikesRef.current.push(sensorMesh)
+      // Create sensor
+      const sensorMesh = new THREE.Mesh(sensorGeometry, sensorMaterial)
+      sensorMesh.position.copy(mappedPosition)
+      scene.add(sensorMesh)
+      sensorMeshesRef.current.push(sensorMesh)
 
-        // Get EEG value for this sensor
-        const value = sensorData.eeg?.data?.[i]?.value || 0
-        
-        if (value !== 0) {
-          // Create spike pointing outward from the brain surface
-          const height = Math.abs(value) * 3  // Smaller height multiplier
-          const spikeGeometry = new THREE.CylinderGeometry(0.2, 0, height, 8)  // Thinner spike
-          const color = value > 0 ? 
-            new THREE.Color(0x00ff80) :  // Cyan/green for positive
-            new THREE.Color(0xff8000)    // Orange for negative
-
-          const spikeMaterial = new THREE.MeshPhongMaterial({
-            color: color,
-            transparent: true,
-            opacity: 0.8,
-            emissive: color,
-            emissiveIntensity: 0.3  // Lower intensity
+      // Create spike if needed
+      const value = sensorData.eeg?.data?.[i]?.value
+      if (value !== undefined && value !== 0) {
+        const height = Math.abs(value) * options.spikeHeight
+        const spike = new THREE.Mesh(
+          spikeBaseGeometry,
+          new THREE.MeshPhongMaterial({
+            color: value > 0 ? options.colors.positive : options.colors.negative,
+            emissive: value > 0 ? options.colors.positive : options.colors.negative,
+            emissiveIntensity: 0.5
           })
+        )
+        spike.scale.y = height
+        spike.position.copy(mappedPosition)
 
-          const spike = new THREE.Mesh(spikeGeometry, spikeMaterial)
-          spike.position.copy(mappedPosition)
+        const normal = mappedPosition.clone().sub(brainMesh.position).normalize()
+        spike.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal)
 
-          // Orient spike along surface normal
-          const normal = mappedPosition.clone().sub(brainMesh.position).normalize()
-          spike.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal)
-
-          sceneRef.current?.add(spike)
-          spikesRef.current.push(spike)
-        }
+        scene.add(spike)
+        spikeMeshesRef.current.push(spike)
       }
     })
+
+    // Clean up geometries
+    return () => {
+      sensorGeometry.dispose()
+      sensorMaterial.dispose()
+      spikeBaseGeometry.dispose()
+    }
   }, [sensorData, options])
 
   return <div ref={containerRef} className="w-full h-full" />

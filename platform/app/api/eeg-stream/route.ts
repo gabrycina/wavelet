@@ -1,60 +1,40 @@
 import { NextResponse } from 'next/server'
 
-export async function GET() {
-  const encoder = new TextEncoder()
-  let controller: ReadableStreamDefaultController | null = null
-  let interval: NodeJS.Timeout | null = null
-
+export async function GET(req: Request) {
   const stream = new ReadableStream({
-    start(ctrl) {
-      controller = ctrl
-      
-      // Send initial data
-      try {
+    async start(controller) {
+      const encoder = new TextEncoder()
+      let counter = 0
+
+      function send() {
         const eegData = {
           data: Array.from({ length: 65 }, () => ({
             value: Math.random() * 4 - 2
           }))
         }
-        
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(eegData)}\n\n`))
-        
-        // Start interval after initial data
-        interval = setInterval(() => {
-          if (!controller) {
-            if (interval) clearInterval(interval)
-            return
-          }
 
-          try {
-            const eegData = {
-              data: Array.from({ length: 65 }, () => ({
-                value: Math.random() * 4 - 2
-              }))
-            }
-            
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(eegData)}\n\n`))
-          } catch (error) {
-            console.error('Stream error:', error)
-            if (interval) clearInterval(interval)
-            controller.close()
-            controller = null
-          }
-        }, 100)
-      } catch (error) {
-        console.error('Initial data error:', error)
-        controller.close()
-        controller = null
+        const data = `id: ${counter}\ndata: ${JSON.stringify(eegData)}\n\n`
+        controller.enqueue(encoder.encode(data))
+        counter++
       }
-    },
-    
-    cancel() {
-      console.log('Stream cancelled by client')
-      if (interval) clearInterval(interval)
-      if (controller) {
+
+      // Send initial data
+      send()
+
+      const timer = setInterval(() => {
+        try {
+          send()
+        } catch (e) {
+          clearInterval(timer)
+          controller.close()
+        }
+      }, 100)
+
+      // Keep connection alive
+      req.signal.addEventListener('abort', () => {
+        clearInterval(timer)
         controller.close()
-        controller = null
-      }
+      })
     }
   })
 
@@ -63,7 +43,9 @@ export async function GET() {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-    },
+      'Keep-Alive': 'timeout=120',
+      'Access-Control-Allow-Origin': '*',
+    }
   })
 }
 

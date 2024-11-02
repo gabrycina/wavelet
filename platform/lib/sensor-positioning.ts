@@ -3,16 +3,34 @@ import * as THREE from 'three'
 // Improved Fibonacci sphere algorithm for more even distribution
 export function generateSpherePoints(numPoints: number, radius: number) {
   const points: THREE.Vector3[] = []
-  
-  // Create points in a cap pattern
-  for (let i = 0; i < numPoints; i++) {
-    // Use polar coordinates to create a cap shape
-    const phi = Math.acos(1 - (i / numPoints) * 0.5) // Range from 0 to ~1.0 radians
-    const theta = i * Math.PI * (3 - Math.sqrt(5)) // Golden angle
+  const phi = Math.PI * (3 - Math.sqrt(5)) // golden angle in radians
 
-    const x = Math.sin(phi) * Math.cos(theta)
-    const y = Math.cos(phi)
-    const z = Math.sin(phi) * Math.sin(theta)
+  for (let i = 0; i < numPoints; i++) {
+    const y = (1 - (i / (numPoints - 1)) * 1)  // y goes from 1 to 0
+    const radius_at_y = Math.sqrt(1 - y * y)  // radius at y
+    
+    const theta = phi * i  // golden angle increment
+
+    const x = Math.cos(theta) * radius_at_y
+    const z = Math.sin(theta) * radius_at_y
+
+    if (y >= 0) {
+      points.push(new THREE.Vector3(
+        x * radius,
+        y * radius,
+        z * radius
+      ))
+    }
+  }
+
+  while (points.length < numPoints) {
+    const i = points.length
+    const y = Math.random() * 0.3 + 0.7  // Add points near the top (0.7 to 1.0)
+    const radius_at_y = Math.sqrt(1 - y * y)
+    const theta = phi * i
+
+    const x = Math.cos(theta) * radius_at_y
+    const z = Math.sin(theta) * radius_at_y
 
     points.push(new THREE.Vector3(
       x * radius,
@@ -31,25 +49,28 @@ export function mapPointToBrainSurface(
   camera: THREE.Camera,
   offset: number = 0.1
 ): THREE.Vector3 | null {
-  // Start from outside but not too far
-  const startPoint = point.clone().normalize().multiplyScalar(30)
-  const directionToCenter = point.clone().negate().normalize()
+  // Create a ray from slightly outside the point towards the brain center
+  const direction = new THREE.Vector3(0, 0, 0).sub(point).normalize()
+  const startPoint = point.clone().add(direction.clone().multiplyScalar(-20))
   
-  const raycaster = new THREE.Raycaster(startPoint, directionToCenter)
-  const intersects = raycaster.intersectObject(brainMesh)
+  const raycaster = new THREE.Raycaster()
+  raycaster.set(startPoint, direction)
+  
+  // Increase the precision
+  raycaster.params.Points.threshold = 0.1
+  
+  const intersects = raycaster.intersectObject(brainMesh, true)
   
   if (intersects.length > 0) {
     const hitPoint = intersects[0].point
-    const normal = intersects[0].face!.normal
+    const normal = intersects[0].face?.normal || direction.clone().negate()
     
-    // Check distance from center axis
-    const distanceFromCenter = Math.sqrt(hitPoint.x * hitPoint.x + hitPoint.z * hitPoint.z)
-    
-    // Only accept points that are far enough from center and above middle
-    if (hitPoint.y > -2 && distanceFromCenter > 10) { // Adjust the 10 based on your brain scale
-      return hitPoint.clone().add(normal.multiplyScalar(offset))
-    }
+    // Add small offset along normal
+    return hitPoint.clone().add(normal.multiplyScalar(offset))
   }
   
-  return null
+  // Fallback: If no intersection, project onto a sphere approximating the brain
+  const brainRadius = 15 // Approximate brain radius
+  const normalized = point.clone().normalize()
+  return normalized.multiplyScalar(brainRadius)
 } 

@@ -1,59 +1,69 @@
 "use client"
-import { useEffect, useState } from 'react'
+
+import { useEffect, useState, useRef } from 'react'
 import { BrainVisualizer } from '@/components/brain-visualizer'
 
 export default function DashboardPage() {
-  // Initialize state with proper structure
-  const [sensorData, setSensorData] = useState({
-    sensors: [],
-    eeg: {
-      data: []
-    }
-  })
+  const [sensorData, setSensorData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const eventSourceRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
-    const fetchInitialData = async () => {
+    let mounted = true
+
+    async function initializeData() {
       try {
-        const response = await fetch('/api/sensor-positions')
-        const data = await response.json()
-        setSensorData(prev => ({
-          ...prev,
-          sensors: data.sensors || []
-        }))
+        // Get initial sensor positions
+        const posRes = await fetch('/api/sensor-positions')
+        const positions = await posRes.json()
+        
+        if (!mounted) return
+        
+        setSensorData(positions)
         setLoading(false)
-      } catch (error) {
-        console.error('Error fetching sensor positions:', error)
-        setLoading(false)
-      }
-    }
 
-    const setupEventSource = () => {
-      const eventSource = new EventSource('/api/eeg-stream')
-
-      eventSource.onmessage = (event) => {
-        try {
-          const eegData = JSON.parse(event.data)
-          setSensorData(prev => ({
-            ...prev,
-            eeg: eegData
-          }))
-        } catch (error) {
-          console.error('Error parsing SSE data:', error)
+        // Setup SSE connection
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close()
         }
-      }
 
-      eventSource.onerror = (error) => {
-        console.error("EventSource error:", error)
-        eventSource.close()
-      }
+        const es = new EventSource('/api/eeg-stream')
+        eventSourceRef.current = es
 
-      return () => eventSource.close()
+        es.onmessage = (event) => {
+          if (!mounted) return
+          try {
+            const eegData = JSON.parse(event.data)
+            setSensorData(prev => ({
+              ...prev,
+              eeg: eegData
+            }))
+          } catch (e) {
+            console.error('Failed to parse SSE data:', e)
+          }
+        }
+
+        es.addEventListener('open', () => {
+          console.log('SSE Connection established')
+        })
+
+        es.addEventListener('error', (e) => {
+          console.warn('SSE Connection error:', e)
+        })
+      } catch (error) {
+        console.error('Failed to initialize data:', error)
+      }
     }
 
-    fetchInitialData()
-    const cleanup = setupEventSource()
-    return cleanup
+    initializeData()
+
+    return () => {
+      mounted = false
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        eventSourceRef.current = null
+      }
+    }
   }, [])
 
   if (loading) {
