@@ -71,12 +71,13 @@ export default function DashboardPage() {
   }
 
   const visualizerOptions = {
-    sensorSize: 1.5,
+    sensorSize: 0.8,
     spikeHeight: 5,
     colors: {
       positive: '#00ff80',
       negative: '#ff8000',
-      sensor: '#ff0000'
+      sensor: '#00e1ff',
+      sensorRing: '#ffffff'
     },
     scale: {
       brain: 20,

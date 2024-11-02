@@ -21,6 +21,7 @@ interface BrainVisualizerProps {
       positive: string;
       negative: string;
       sensor: string;
+      sensorRing: string;
     };
     scale: {
       brain: number;
@@ -121,7 +122,7 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         brain.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.material = new THREE.MeshPhongMaterial({
-              color: 0xdfdfdf, // Lighter gray (increased from 0xcccccc)
+              color: 0xF9F8F8,  // Whiter gray but still visible
               shininess: 20,
               transparent: true,
               opacity: 0.95,
@@ -211,7 +212,10 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
     const sensorMaterial = new THREE.MeshPhongMaterial({
       color: new THREE.Color(options.colors.sensor),
       emissive: new THREE.Color(options.colors.sensor),
-      emissiveIntensity: 0.5
+      emissiveIntensity: 0.6,
+      transparent: true,
+      opacity: 0.9,
+      shininess: 90
     })
     const spikeBaseGeometry = new THREE.CylinderGeometry(0.2, 0, 1, 8) // Base geometry to scale
 
@@ -235,11 +239,30 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         0.5
       ) || initialPos.normalize().multiplyScalar(15)
 
-      // Create sensor
+      // Create sensor sphere
       const sensorMesh = new THREE.Mesh(sensorGeometry, sensorMaterial)
       sensorMesh.position.copy(mappedPosition)
       scene.add(sensorMesh)
       sensorMeshesRef.current.push(sensorMesh)
+
+      // Add ring around sensor
+      const ringGeometry = new THREE.TorusGeometry(options.sensorSize * 1.2, 0.1, 8, 16)
+      const ringMaterial = new THREE.MeshPhongMaterial({
+        color: new THREE.Color(options.colors.sensorRing),
+        emissive: new THREE.Color(options.colors.sensorRing),
+        emissiveIntensity: 0.5,
+        transparent: true,
+        opacity: 0.6
+      })
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial)
+      ring.position.copy(mappedPosition)
+      
+      // Orient ring to face camera
+      const normal = mappedPosition.clone().sub(brainMesh.position).normalize()
+      ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal)
+      
+      scene.add(ring)
+      sensorMeshesRef.current.push(ring)
 
       // Create spike if needed
       const value = sensorData.eeg?.data?.[i]?.value
