@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "surfml"
+version = "0.1.0"
+description = "Extracting MEG-like information from EEG reading, understanding the brain. For a lot cheaper."
+authors = ["Your Name <you@example.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+transformers = "^4.46.1"
+torch = "^2.5.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
