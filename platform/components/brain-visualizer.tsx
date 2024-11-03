@@ -53,6 +53,13 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
   const spikeMeshesRef = useRef<THREE.Mesh[]>([])
   const animationFrameRef = useRef<number>()
   const validPointsRef = useRef<THREE.Vector3[]>([])
+  const materialRefs = useRef({
+    sensor: null as THREE.MeshPhongMaterial | null,
+    ring: null as THREE.MeshPhongMaterial | null,
+    spikePositive: null as THREE.MeshPhongMaterial | null,
+    spikeNegative: null as THREE.MeshPhongMaterial | null
+  })
+  const lastSpikeDataRef = useRef<any>(null) // Store last spike data
 
   // Setup scene, lights, and load brain model - only once
   useEffect(() => {
@@ -65,12 +72,17 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
     // Fix aspect ratio calculation
     const aspect = containerRef.current.clientWidth / containerRef.current.clientHeight
     const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000)
-    camera.position.set(0, 0, 100) // Adjust camera position
+    camera.position.set(0, 150, 0)
+    camera.lookAt(0, 0, 0)
     cameraRef.current = camera
     
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
-      powerPreference: "high-performance" 
+      powerPreference: "high-performance",
+      precision: "mediump", // Lower precision for better performance
+      alpha: false, // We don't need transparency in the canvas
+      stencil: false,
+      depth: true
     })
     rendererRef.current = renderer
     
@@ -98,10 +110,11 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
     controls.dampingFactor = 0.05
-    controls.screenSpacePanning = false
-    controls.minDistance = 50
-    controls.maxDistance = 200
-    controls.maxPolarAngle = Math.PI // Allow full vertical rotation
+    controls.rotateSpeed = 0.8
+    controls.zoomSpeed = 0.8
+    controls.enablePan = false // Disable panning for better performance
+    controls.minDistance = 80
+    controls.maxDistance = 400
 
     const loader = new GLTFLoader()
     
@@ -109,8 +122,8 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
       (gltf) => {
         const brain = gltf.scene
         
-        // Adjust scale to maintain proportions
-        brain.scale.set(20, 20, 20)
+        // Make brain bigger
+        brain.scale.set(40, 40, 40)  // Increased from 30
         
         // Center the brain
         const box = new THREE.Box3().setFromObject(brain)
@@ -119,26 +132,29 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         
         brainRef.current = brain
         
+        // Simple material optimization while keeping brain visible
         brain.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.material = new THREE.MeshPhongMaterial({
-              color: 0xF9F8F8,  // Whiter gray but still visible
-              shininess: 20,
+              color: 0xF9F8F8,  // Light gray color
               transparent: true,
               opacity: 0.95,
+              shininess: 20,
+              side: THREE.DoubleSide
             })
           }
         })
 
         scene.add(brain)
         
-        // Collect surface points
+        // Optimize point sampling
         validPointsRef.current = []
         brain.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             const geometry = child.geometry
             const position = geometry.attributes.position
             
+            // Sample fewer points
             for (let i = 0; i < position.count; i += 100) {
               const vertex = new THREE.Vector3()
               vertex.fromBufferAttribute(position, i)
@@ -192,32 +208,59 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
   useEffect(() => {
     if (!sensorData?.sensors || !brainRef.current || !sceneRef.current) return
 
-    // Clear old meshes efficiently
     const scene = sceneRef.current
+
+    // Clear old meshes efficiently
     sensorMeshesRef.current.forEach(mesh => {
       scene.remove(mesh)
       mesh.geometry.dispose()
-      mesh.material instanceof THREE.Material && mesh.material.dispose()
+      if (mesh.material instanceof THREE.Material) {
+        mesh.material.dispose()
+      }
     })
     spikeMeshesRef.current.forEach(mesh => {
       scene.remove(mesh)
       mesh.geometry.dispose()
-      mesh.material instanceof THREE.Material && mesh.material.dispose()
+      if (mesh.material instanceof THREE.Material) {
+        mesh.material.dispose()
+      }
     })
     sensorMeshesRef.current = []
     spikeMeshesRef.current = []
 
-    // Reuse geometries and materials
-    const sensorGeometry = new THREE.SphereGeometry(options.sensorSize, 16, 16)
-    const sensorMaterial = new THREE.MeshPhongMaterial({
-      color: new THREE.Color(options.colors.sensor),
-      emissive: new THREE.Color(options.colors.sensor),
-      emissiveIntensity: 0.6,
-      transparent: true,
-      opacity: 0.9,
-      shininess: 90
-    })
-    const spikeBaseGeometry = new THREE.CylinderGeometry(0.2, 0, 1, 8) // Base geometry to scale
+    // Store the latest EEG data if it exists
+    if (sensorData.eeg?.data) {
+      lastSpikeDataRef.current = sensorData.eeg
+    }
+
+    // Use the most recent data (either current or last stored)
+    const eegData = sensorData.eeg?.data ? sensorData.eeg : lastSpikeDataRef.current
+
+    // Create or update shared materials
+    if (!materialRefs.current.sensor) {
+      materialRefs.current.sensor = new THREE.MeshPhongMaterial({
+        color: new THREE.Color(options.colors.sensor),
+        emissive: new THREE.Color(options.colors.sensor),
+        emissiveIntensity: 0.6,
+        transparent: true,
+        opacity: 0.9,
+        shininess: 90
+      })
+    }
+    if (!materialRefs.current.ring) {
+      materialRefs.current.ring = new THREE.MeshPhongMaterial({
+        color: new THREE.Color(options.colors.sensorRing),
+        emissive: new THREE.Color(options.colors.sensorRing),
+        emissiveIntensity: 0.5,
+        transparent: true,
+        opacity: 0.6
+      })
+    }
+
+    // Reuse geometries
+    const sensorGeometry = new THREE.SphereGeometry(options.sensorSize, 8, 8)
+    const ringGeometry = new THREE.TorusGeometry(options.sensorSize * 1.2, 0.1, 6, 12)
+    const spikeBaseGeometry = new THREE.CylinderGeometry(0.2, 0, 1, 6)
 
     const brainMesh = brainRef.current?.children[0] as THREE.Mesh
     if (!brainMesh) return
@@ -239,33 +282,24 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         0.5
       ) || initialPos.normalize().multiplyScalar(15)
 
-      // Create sensor sphere
-      const sensorMesh = new THREE.Mesh(sensorGeometry, sensorMaterial)
+      // Create sensor sphere using shared material
+      const sensorMesh = new THREE.Mesh(sensorGeometry, materialRefs.current.sensor!)
       sensorMesh.position.copy(mappedPosition)
       scene.add(sensorMesh)
       sensorMeshesRef.current.push(sensorMesh)
 
-      // Add ring around sensor
-      const ringGeometry = new THREE.TorusGeometry(options.sensorSize * 1.2, 0.1, 8, 16)
-      const ringMaterial = new THREE.MeshPhongMaterial({
-        color: new THREE.Color(options.colors.sensorRing),
-        emissive: new THREE.Color(options.colors.sensorRing),
-        emissiveIntensity: 0.5,
-        transparent: true,
-        opacity: 0.6
-      })
-      const ring = new THREE.Mesh(ringGeometry, ringMaterial)
+      // Add ring around sensor using shared material
+      const ring = new THREE.Mesh(ringGeometry, materialRefs.current.ring!)
       ring.position.copy(mappedPosition)
       
       // Orient ring to face camera
       const normal = mappedPosition.clone().sub(brainMesh.position).normalize()
       ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal)
-      
       scene.add(ring)
       sensorMeshesRef.current.push(ring)
 
-      // Create spike if needed
-      const value = sensorData.eeg?.data?.[i]?.value
+      // Create spike if needed using the eegData
+      const value = eegData?.data?.[i]?.value
       if (value !== undefined && value !== 0) {
         const height = Math.abs(value) * options.spikeHeight
         const spike = new THREE.Mesh(
@@ -290,7 +324,7 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
     // Clean up geometries
     return () => {
       sensorGeometry.dispose()
-      sensorMaterial.dispose()
+      ringGeometry.dispose()
       spikeBaseGeometry.dispose()
     }
   }, [sensorData, options])

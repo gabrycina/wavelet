@@ -1,22 +1,42 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { BrainVisualizer } from '@/components/brain-visualizer'
 import { EEGWaveform } from '@/components/eeg-waveform'
+import { throttle } from 'lodash'
+import { Play, Pause } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export default function DashboardPage() {
   const [sensorData, setSensorData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [isPaused, setIsPaused] = useState(false)
   const eventSourceRef = useRef<EventSource | null>(null)
   const [leftWaveformData, setLeftWaveformData] = useState<number[]>([])
   const [rightWaveformData, setRightWaveformData] = useState<number[]>([])
+
+  const throttledSensorUpdate = useCallback(
+    throttle((eegData) => {
+      if (!isPaused) {
+        setSensorData(prev => ({
+          ...prev,
+          eeg: eegData
+        }))
+        
+        const leftValue = eegData.data[0]?.value || 0
+        const rightValue = eegData.data[7]?.value || 0
+        setLeftWaveformData(prev => [...prev.slice(-50), leftValue])
+        setRightWaveformData(prev => [...prev.slice(-50), rightValue])
+      }
+    }, 16),
+    [isPaused]
+  )
 
   useEffect(() => {
     let mounted = true
 
     async function initializeData() {
       try {
-        // Get initial sensor positions
         const posRes = await fetch('/api/sensor-positions')
         const positions = await posRes.json()
         
@@ -25,7 +45,6 @@ export default function DashboardPage() {
         setSensorData(positions)
         setLoading(false)
 
-        // Setup SSE connection
         if (eventSourceRef.current) {
           eventSourceRef.current.close()
         }
@@ -34,20 +53,10 @@ export default function DashboardPage() {
         eventSourceRef.current = es
 
         es.onmessage = (event) => {
-          if (!mounted) return
+          if (!mounted || isPaused) return
           try {
             const eegData = JSON.parse(event.data)
-            setSensorData(prev => ({
-              ...prev,
-              eeg: eegData
-            }))
-
-            // Update waveform data (keeping last 50 points)
-            const leftValue = eegData.data[0]?.value || 0  // Using first sensor
-            const rightValue = eegData.data[7]?.value || 0 // Using eighth sensor
-            
-            setLeftWaveformData(prev => [...prev.slice(-50), leftValue])
-            setRightWaveformData(prev => [...prev.slice(-50), rightValue])
+            throttledSensorUpdate(eegData)
           } catch (e) {
             console.error('Failed to parse SSE data:', e)
           }
@@ -74,6 +83,10 @@ export default function DashboardPage() {
         eventSourceRef.current = null
       }
     }
+  }, [isPaused])
+
+  const toggleStream = useCallback(() => {
+    setIsPaused(prev => !prev)
   }, [])
 
   if (loading) {
@@ -111,6 +124,21 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full h-screen flex flex-col">
+      <div className="flex items-center justify-end p-4 gap-2">
+        <Button 
+          onClick={toggleStream}
+          variant="outline"
+          size="icon"
+          className="w-10 h-10"
+        >
+          {isPaused ? (
+            <Play className="h-4 w-4" />
+          ) : (
+            <Pause className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
       <div className="flex-1 flex">
         <div className="flex-1 flex flex-col">
           <BrainVisualizer 
