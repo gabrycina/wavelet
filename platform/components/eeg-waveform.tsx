@@ -46,11 +46,6 @@ export function EEGWaveform({ data, mode = 'raw' }: { data: EEGData, mode?: 'raw
   const lastValidDataRef = useRef<any[]>([])
   const config = mode === 'raw' ? channelConfig : megChannelConfig
 
-  // If there's no data, use the last valid data
-  if (!data?.data?.length && lastValidDataRef.current.length) {
-    return null
-  }
-
   // Transform and store valid data
   const chartData = data?.data?.length ? data.data.map((_, index) => ({
     time: index,
@@ -58,14 +53,16 @@ export function EEGWaveform({ data, mode = 'raw' }: { data: EEGData, mode?: 'raw
       ...acc,
       [key]: (data.data[chIndex]?.value || 0) * 2 + config[key].offset
     }), {})
-  })) : []
+  })) : lastValidDataRef.current // Use last valid data when no new data
 
-  if (chartData.length) {
+  // Store valid data for later use
+  if (data?.data?.length) {
     lastValidDataRef.current = chartData
   }
 
+  // Don't return null, instead return the last known state
   return (
-    <div className="rounded-lg p-4 transition-all duration-300 bg-black">
+    <div className="bg-black rounded-lg p-4 transition-all duration-300">
       <h3 className="text-sm font-medium mb-4 font-space tracking-tight">
         {mode === 'raw' ? 'EEG Channels' : 'AI-Derived MEG'}
         {mode === 'enhanced' && (

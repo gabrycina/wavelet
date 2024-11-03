@@ -13,10 +13,26 @@ import { FrequencyBandsChart } from '@/components/frequency-bands-chart'
 import { synthesizer } from '@/lib/audio-synthesizer'
 import { JetBrains_Mono } from 'next/font/google'
 import { megSimulator } from '@/lib/meg-simulator'
+import { audioPlayer } from '@/lib/audio-player'
+import { Cpu } from 'lucide-react'
 
 const jetbrains = JetBrains_Mono({
   subsets: ['latin'],
 })
+
+function AnimatedVolumeIcon({ isPlaying }: { isPlaying: boolean }) {
+  return (
+    <div className="relative">
+      <Volume2 className={`h-4 w-4 ${isPlaying ? 'text-primary' : ''}`} />
+      {isPlaying && (
+        <>
+          <div className="absolute inset-0 animate-ping-slow rounded-full border border-primary opacity-75" />
+          <div className="absolute -inset-0.5 animate-pulse-slow rounded-full border border-primary opacity-50" />
+        </>
+      )}
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const [sensorData, setSensorData] = useState(null)
@@ -63,20 +79,17 @@ export default function DashboardPage() {
   }, [isAudioEnabled])
 
   const toggleAudio = useCallback(() => {
-    if (!isPaused) {
-      setIsAudioEnabled(prev => {
-        if (!prev) {
-          synthesizer.start()
-        } else {
-          synthesizer.stop()
-        }
-        return !prev
-      })
+    setIsAudioEnabled(!isAudioEnabled)
+    if (!isAudioEnabled) {
+      synthesizer.start()
+      synthesizer.setMode(signalType === 'raw' ? 'eeg' : 'meg')
+    } else {
+      synthesizer.stop()
     }
-  }, [isPaused])
+  }, [isAudioEnabled, signalType])
 
   useEffect(() => {
-    if (isAudioEnabled) {
+    if (isAudioEnabled && frequencyBands) {
       synthesizer.updateFrequencyBands(frequencyBands)
     }
   }, [frequencyBands, isAudioEnabled])
@@ -204,6 +217,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (signalType === 'enhanced') {
+      synthesizer.setMode('meg')
+    } else {
+      synthesizer.setMode('eeg')
+    }
+  }, [signalType])
+
+  useEffect(() => {
+    if (signalType === 'enhanced') {
       const unsubscribe = megSimulator.subscribe(throttle((data) => {
         if (!isPaused) {
           setMegData(data)
@@ -234,6 +255,13 @@ export default function DashboardPage() {
       // Your existing EEG stream code
     }
   }, [signalType, isPaused])
+
+  const toggleSignalType = useCallback((type: 'raw' | 'enhanced') => {
+    setSignalType(type)
+    if (isAudioEnabled) {
+      synthesizer.setMode(type === 'raw' ? 'eeg' : 'meg')
+    }
+  }, [isAudioEnabled])
 
   if (loading) {
     return <></>
@@ -297,7 +325,11 @@ export default function DashboardPage() {
               className="w-10 h-10"
               disabled={isPaused}
             >
-              {isAudioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              {isAudioEnabled ? (
+                <AnimatedVolumeIcon isPlaying={true} />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
             </Button>
           </div>
 
@@ -306,7 +338,7 @@ export default function DashboardPage() {
               variant={signalType === 'raw' ? "secondary" : "ghost"}
               size="sm"
               className="font-space tracking-tight"
-              onClick={() => setSignalType('raw')}
+              onClick={() => toggleSignalType('raw')}
             >
               Raw Signals
             </Button>
@@ -323,7 +355,7 @@ export default function DashboardPage() {
               variant={signalType === 'enhanced' ? "secondary" : "ghost"}
               size="sm"
               className="font-space tracking-tight"
-              onClick={() => setSignalType('enhanced')}
+              onClick={() => toggleSignalType('enhanced')}
             >
               Enhanced Signals
             </Button>
@@ -349,18 +381,32 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                {/* EEG Waveform without card border */}
-                    <EEGWaveform data={sensorData.eeg} mode={signalType} />
-
-                {/* Frequency Bands without card border */}
-                  <h3 className="text-sm font-medium mb-4">Frequency Bands</h3>
-                  <FrequencyBandsChart data={frequencyBands} />
+                <EEGWaveform 
+                  data={sensorData.eeg} 
+                  mode={signalType}
+                />
+                <h3 className="text-sm font-medium mb-4">Frequency Bands</h3>
+                <FrequencyBandsChart data={frequencyBands} />
+                {(
+                  
+                  <div className="absolute bottom-20 left-6 bg-gray/50 rounded-lg p-4">
+                    <h4 className="text-sm font-medium mb-2 font-space">Signal Quality</h4>
+                    <div className="flex gap-1">
+                      {Array(5).fill(0).map((_, i) => (
+                        <div 
+                          key={i}
+                          className="w-1 h-4 bg-primary/60 rounded-full"
+                          style={{ opacity: (i + 1) * 0.2 }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
         </div>
 
-        {/* Add logo */}
         <div className="absolute bottom-6 left-6 z-10">
           <h1 className={`${jetbrains.className} text-sm text-muted-foreground/60`}>
             Made by <span className='underscore'>Wavelet_</span> with ❤️

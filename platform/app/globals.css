@@ -13,6 +13,9 @@ body {
   .font-space {
     font-family: var(--font-space);
   }
+  .mode-transition {
+    @apply transition-all duration-500 ease-in-out;
+  }
 }
 
 @layer base {

@@ -61,6 +61,18 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
   })
   const lastSpikeDataRef = useRef<any>(null) // Store last spike data
 
+  const megVisualizerOptions = {
+    ...options,
+    colors: {
+      positive: '#00ffff',  // Cyan for positive
+      negative: '#0000ff',  // Blue for negative
+      sensor: '#00a0ff',    // Light blue for sensors
+      sensorRing: '#40c0ff' // Lighter blue for rings
+    },
+    sensorSize: 0.8,       // Smaller sensors
+    spikeHeight: 8,        // Taller spikes
+  }
+
   // Setup scene, lights, and load brain model - only once
   useEffect(() => {
     if (!containerRef.current) return
@@ -133,16 +145,18 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         brainRef.current = brain
         
         // Update the brain material section
-        brain.traverse((child) => {
+        const brainMaterial = new THREE.MeshPhongMaterial({
+          color: 0xb0b0b0,  // Lighter gray (was 0x808080)
+          transparent: true,
+          opacity: 0.9,
+          shininess: 30,
+          specular: 0x505050  // Slightly lighter specular highlights too
+        })
+
+        // Apply material to brain mesh
+        gltf.scene.traverse((child) => {
           if (child instanceof THREE.Mesh) {
-            child.material = new THREE.MeshPhongMaterial({
-              color: 0xcccccc,        // Bright terminal green
-              specular: 0xcccccc,     // Slightly lighter green for highlights
-              shininess: 0,          
-              transparent: true,
-              opacity: 0.75,          
-              side: THREE.DoubleSide
-            })
+            child.material = brainMaterial
           }
         })
 
