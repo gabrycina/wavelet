@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { generateSpherePoints, mapPointToBrainSurface } from '@/lib/sensor-positioning'
+import { mapPointToBrainSurface } from '@/lib/sensor-positioning'
 
 interface BrainVisualizerProps {
   type: 'EEG' | 'MEG';
@@ -66,7 +66,7 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
     if (!containerRef.current) return
 
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0xffffff)
+    scene.background = new THREE.Color(0x000000)
     sceneRef.current = scene
     
     // Fix aspect ratio calculation
@@ -132,17 +132,43 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         
         brainRef.current = brain
         
-        // Simple material optimization while keeping brain visible
+        // Update the brain material section
         brain.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.material = new THREE.MeshPhongMaterial({
-              color: 0xFFFFFF,  // Light gray color
-              transparent: false,
-              opacity: 1,
-              shininess: 20,
+              color: 0xc0c0c0,        // Light gray instead of white
+              specular: 0x222222,     // Subtle highlights
+              shininess: 80,          
+              transparent: true,
+              opacity: 0.75,          
               side: THREE.DoubleSide
             })
           }
+        })
+
+        // Clean lighting setup
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4)
+        scene.add(ambientLight)
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8)
+        mainLight.position.set(1, 1, 1)
+        scene.add(mainLight)
+
+        // Add a contrasting rim light for edge definition
+        const rimLight = new THREE.DirectionalLight(0x00ffff, 0.4)  // Cyan rim light
+        rimLight.position.set(-1, 0, -1)
+        scene.add(rimLight)
+
+        // Add environment map for reflections
+        const pmremGenerator = new THREE.PMREMGenerator(renderer)
+        const envTexture = new THREE.CubeTextureLoader().load([
+          '/env/px.jpg', '/env/nx.jpg',
+          '/env/py.jpg', '/env/ny.jpg',
+          '/env/pz.jpg', '/env/nz.jpg'
+        ], () => {
+          const envMap = pmremGenerator.fromCubemap(envTexture).texture
+          scene.environment = envMap
+          pmremGenerator.dispose()
         })
 
         scene.add(brain)
@@ -243,7 +269,7 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         emissive: new THREE.Color(options.colors.sensor),
         emissiveIntensity: 0.6,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.6,
         shininess: 90
       })
     }
