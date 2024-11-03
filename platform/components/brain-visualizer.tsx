@@ -225,6 +225,16 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
 
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate)
+      
+      // Add camera rotation
+      if (cameraRef.current) {
+        const rotationSpeed = 0.01 // Adjust speed as needed
+        
+        // Rotate camera around the brain
+        cameraRef.current.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationSpeed)
+        cameraRef.current.lookAt(0, 0, 0)
+      }
+      
       controls.update()
       renderer.render(scene, camera)
     }

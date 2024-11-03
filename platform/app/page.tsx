@@ -1,101 +1,109 @@
-import Image from "next/image";
+"use client"
+
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { JetBrains_Mono } from 'next/font/google'
+import DashboardPage from './dashboard/page'
+import WaveBackground from '@/components/wave-background'
+
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+})
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [showLanding, setShowLanding] = useState(true)
+  const [visible, setVisible] = useState(false)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  useEffect(() => {
+    // Delay showing the button for a smoother entrance
+    const timer = setTimeout(() => setVisible(true), 2000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (!showLanding) {
+    return <DashboardPage />
+  }
+
+  return (
+    <>
+      <WaveBackground />
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center landing-overlay">
+        <h1 className={`${jetbrains.className} text-4xl md:text-6xl mb-12`}>
+          <span className="typewriter">
+            Welcome to Wavelet<span className="cursor flowing-cursor">_</span>
+          </span>
+        </h1>
+
+        <Button 
+          onClick={() => {
+            const overlay = document.querySelector('.landing-overlay')
+            overlay?.classList.add('fade-out')
+            setTimeout(() => setShowLanding(false), 1000)
+          }}
+          className={`
+            transition-all duration-1000 
+            ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
+          `}
+          size="lg"
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+          Enter Platform
+        </Button>
+
+        <style jsx global>{`
+          .landing-overlay {
+            transition: opacity 1s ease-in-out;
+          }
+
+          .landing-overlay.fade-out {
+            opacity: 0;
+          }
+
+          .typewriter {
+            overflow: hidden;
+            border-right: .15em solid transparent;
+            white-space: nowrap;
+            animation: typing 2s steps(20, end);
+          }
+          
+          @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+          }
+          
+          .flowing-cursor {
+            position: relative;
+            background: linear-gradient(
+              90deg,
+              #8000ff,  /* Purple */
+              #0088ff,  /* Blue */
+              #00ff80,  /* Green */
+              #ff8000,  /* Orange */
+              #ff4040,  /* Red */
+              #8000ff   /* Back to purple for seamless loop */
+            );
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: blink 1s step-end infinite,
+                       flowingGradient 3s linear infinite;
+          }
+
+          @keyframes flowingGradient {
+            0% {
+              background-position: 0% 50%;
+            }
+            100% {
+              background-position: -200% 50%;
+            }
+          }
+          
+          @keyframes blink {
+            from, to { opacity: 1 }
+            50% { opacity: 0 }
+          }
+        `}</style>
+      </div>
+    </>
+  )
 }
