@@ -1,0 +1,39 @@
+# Training configuration
+training:
+  gpu: '0'
+  project_name: 'meg-transfer'
+  learning_rate: 0.0001
+  epochs: 5
+  val_freq: 1
+  print_freq: 1
+
+# Decoder model configuration
+model:
+  gpt2_config:  
+    vocab_size: 255  # discretization level in the input signal
+    n_positions: 1024
+    n_embd: 768
+    n_layer: 12
+    n_head: 12
+    # embedding sizes
+    quant_emb: 4
+    channel_emb: 16
+
+
+# Dataset configuration
+dataset:
+  data_path: None  # path to the data, None for default path
+  num_channels: 306
+  shuffle: false
+  whiten: false
+  split: [0, 0.2]
+  save_data: true
+  dump_data: '/path/to/dump'
+  load_data: ''
+
+# Saving configuration
+saving:
+  result_dir: './checkpoints'
+  push_to_hub: true
+  hub_user: 'fracapuano'
+  model_name: 'MEG-GPT2'
