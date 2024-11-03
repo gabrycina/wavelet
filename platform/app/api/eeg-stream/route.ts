@@ -5,14 +5,23 @@ export async function GET(req: Request) {
     async start(controller) {
       const encoder = new TextEncoder()
       let counter = 0
+      let lastValues = Array(14).fill(0)
 
       function send() {
+        // Generate smoother transitions between values
         const eegData = {
-          data: Array.from({ length: 14 }, () => ({
-            value: Math.random() * 4 - 2
-          }))
+          data: lastValues.map((lastValue) => {
+            // Add a smaller random change to the last value
+            const change = (Math.random() - 0.5) * 0.3
+            const newValue = Math.max(-2, Math.min(2, lastValue + change))
+            return {
+              value: newValue
+            }
+          })
         }
 
+        lastValues = eegData.data.map(d => d.value)
+        
         const data = `id: ${counter}\ndata: ${JSON.stringify(eegData)}\n\n`
         controller.enqueue(encoder.encode(data))
         counter++
@@ -20,6 +29,7 @@ export async function GET(req: Request) {
 
       send()
 
+      // Set interval to match EPOC X's 256 Hz sampling rate
       const timer = setInterval(() => {
         try {
           send()
@@ -27,7 +37,7 @@ export async function GET(req: Request) {
           clearInterval(timer)
           controller.close()
         }
-      }, 200)
+      }, 1000 / 256) // ≈ 3.90625ms between samples
 
       req.signal.addEventListener('abort', () => {
         clearInterval(timer)
