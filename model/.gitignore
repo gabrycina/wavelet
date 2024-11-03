@@ -1,0 +1,6 @@
+# ignoring pytorch trained models
+*.pth
+
+# ignoring wandb logs
+wandb/
+
