@@ -10,6 +10,9 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  .font-space {
+    font-family: var(--font-space);
+  }
 }
 
 @layer base {
@@ -71,6 +74,25 @@ body {
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01" 1, "ss02" 1, "cv01" 1, "cv02" 1;
+    font-family: var(--font-space);
+  }
+
+  /* Make headings and chart titles more distinctive */
+  h1, h2, h3, h4, h5, h6, 
+  .card-title {
+    font-family: var(--font-space);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  /* Optional: Use monospace for numerical values */
+  .numerical-value {
+    font-variant-numeric: tabular-nums;
   }
 }
 

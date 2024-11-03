@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { JetBrains_Mono, Space_Grotesk } from 'next/font/google'
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+// Option 1: JetBrains Mono - techy, monospace
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains'
+})
+
+// Option 2: Space Grotesk - modern, scientific
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space'
+})
 
 export const metadata: Metadata = {
   title: "Wavelet | EEG Analysis Platform",
@@ -29,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${spaceGrotesk.variable} antialiased`}
       >
         {children}
       </body>

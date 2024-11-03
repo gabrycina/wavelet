@@ -136,9 +136,9 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         brain.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.material = new THREE.MeshPhongMaterial({
-              color: 0xc0c0c0,        // Light gray instead of white
-              specular: 0x222222,     // Subtle highlights
-              shininess: 80,          
+              color: 0xcccccc,        // Bright terminal green
+              specular: 0xcccccc,     // Slightly lighter green for highlights
+              shininess: 0,          
               transparent: true,
               opacity: 0.75,          
               side: THREE.DoubleSide
