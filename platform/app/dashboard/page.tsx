@@ -13,8 +13,7 @@ import { FrequencyBandsChart } from '@/components/frequency-bands-chart'
 import { synthesizer } from '@/lib/audio-synthesizer'
 import { JetBrains_Mono } from 'next/font/google'
 import { megSimulator } from '@/lib/meg-simulator'
-import { audioPlayer } from '@/lib/audio-player'
-import { Cpu } from 'lucide-react'
+import { DownloadModal } from '@/components/download-modal'
 
 const jetbrains = JetBrains_Mono({
   subsets: ['latin'],
@@ -113,22 +112,31 @@ export default function DashboardPage() {
     if (dataBuffer.current[0].length >= BUFFER_SIZE) {
       const frequencyBands = dataBuffer.current.map(channelData => {
         const fftData = fft(channelData);
-        const realParts = fftData.map(([real, imaginary]) => real);
+        const realParts = fftData.map(([real, imaginary]) => {
+          // Calculate magnitude for smoother transitions
+          return Math.sqrt(real * real + imaginary * imaginary);
+        });
 
+        // Apply smoothing and scaling factors
         return {
-          delta: normalizeData(realParts.slice(0, 2)),
-          theta: normalizeData(realParts.slice(2, 4)),
-          alpha: normalizeData(realParts.slice(4, 6)),
-          beta: normalizeData(realParts.slice(6, 8)),
-          gamma: normalizeData(realParts.slice(8, 10))
+          delta: realParts.slice(0, 4).map(v => v * 0.8),  // 0-4 Hz
+          theta: realParts.slice(4, 8).map(v => v * 0.7),  // 4-8 Hz
+          alpha: realParts.slice(8, 13).map(v => v * 0.6), // 8-13 Hz
+          beta: realParts.slice(13, 30).map(v => v * 0.5), // 13-30 Hz
+          gamma: realParts.slice(30, 50).map(v => v * 0.4) // 30-50 Hz
         };
       });
 
       dataBuffer.current = Array(14).fill([]);
 
+      // Aggregate and smooth the bands
       const aggregatedBands = frequencyBands.reduce((acc, bands) => {
         Object.keys(bands).forEach(key => {
-          acc[key] = acc[key].concat(bands[key]);
+          // Add some randomness for more natural movement
+          const jitter = Math.random() * 0.2 - 0.1; // ±0.1
+          acc[key] = acc[key].concat(
+            bands[key].map(v => Math.max(-1, Math.min(1, v + jitter)))
+          );
         });
         return acc;
       }, {
@@ -269,7 +277,7 @@ export default function DashboardPage() {
 
   const baseVisualizerOptions = {
     sensorSize: 1.2,
-    spikeHeight: 5,
+    spikeHeight: 12,
     scale: {
       brain: 20,
       sensor: 20
@@ -279,8 +287,8 @@ export default function DashboardPage() {
   const leftVisualizerOptions = {
     ...baseVisualizerOptions,
     colors: {
-      positive: '#00ff80',
-      negative: '#ff8000',
+      positive: '#ff4040',
+      negative: '#40ff40',
       sensor: '#ff4040',
       sensorRing: '#ff6060'
     }
@@ -289,8 +297,8 @@ export default function DashboardPage() {
   const rightVisualizerOptions = {
     ...baseVisualizerOptions,
     colors: {
-      positive: '#00ff80',
-      negative: '#ff8000',
+      positive: '#ff4040',
+      negative: '#40ff40',
       sensor: '#0088ff',
       sensorRing: '#40a0ff'
     }
@@ -306,55 +314,61 @@ export default function DashboardPage() {
   return (
     <SidebarProvider>
       <div className="w-full h-screen flex flex-col relative bg-background p-6">
-        {/* Top Bar with Controls */}
+        {/* Wavelet Credit - Now at Top */}
         <div className="flex justify-between items-center mb-6">
-          <div className="flex gap-2">
-            <Button 
-              onClick={toggleStream}
-              variant="outline"
-              size="icon"
-              className="w-10 h-10"
-            >
-              {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            </Button>
-            
-            <Button 
-              onClick={toggleAudio}
-              variant="outline"
-              size="icon"
-              className="w-10 h-10"
-              disabled={isPaused}
-            >
-              {isAudioEnabled ? (
-                <AnimatedVolumeIcon isPlaying={true} />
-              ) : (
-                <VolumeX className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
+          <h1 className={`${jetbrains.className} text-xl text-muted-foreground/90`}>
+            <span className="typewriter">
+              Welcome to Wavelet Gabriele<span className="cursor">_</span>
+            </span>
+            <style jsx>{`
+              .typewriter {
+                overflow: hidden;
+                border-right: .15em solid transparent;
+                white-space: nowrap;
+                animation: typing 3.5s steps(40, end),
+                           blink-caret .75s step-end infinite;
+              }
+              
+              @keyframes typing {
+                from { width: 0 }
+                to { width: 100% }
+              }
+              
+              .cursor {
+                animation: blink 1s step-end infinite;
+              }
+              
+              @keyframes blink {
+                from, to { opacity: 1 }
+                50% { opacity: 0 }
+              }
+            `}</style>
+          </h1>
 
           <div className="flex items-center gap-2">
             <Button 
               variant={signalType === 'raw' ? "secondary" : "ghost"}
               size="sm"
-              className="font-space tracking-tight"
+              className={`font-space tracking-tight transition-all duration-300 ${
+                signalType === 'raw' ? 'scale-105' : 'scale-100 opacity-70'
+              }`}
               onClick={() => toggleSignalType('raw')}
             >
               Raw Signals
             </Button>
 
-            <div className="text-muted-foreground/60 transition-transform duration-300">
-              {signalType === 'raw' ? (
-                <ArrowRight className="h-4 w-4" />
-              ) : (
-                <ArrowLeft className="h-4 w-4" />
-              )}
+            <div className={`text-muted-foreground/60 transition-all duration-300 ${
+              signalType === 'raw' ? 'rotate-0' : 'rotate-180'
+            }`}>
+              <ArrowRight className="h-4 w-4" />
             </div>
 
             <Button 
               variant={signalType === 'enhanced' ? "secondary" : "ghost"}
               size="sm"
-              className="font-space tracking-tight"
+              className={`font-space tracking-tight transition-all duration-300 ${
+                signalType === 'enhanced' ? 'scale-105' : 'scale-100 opacity-70'
+              }`}
               onClick={() => toggleSignalType('enhanced')}
             >
               Enhanced Signals
@@ -374,7 +388,7 @@ export default function DashboardPage() {
           </div>
           
           {/* Right: Charts */}
-          <div className="flex-1 flex flex-col justify-center gap-6">
+          <div className="flex-1 flex flex-col justify-center gap-6 pr-16">
             {isLoading ? (
               <div className="flex justify-center items-center h-full">
                 <Spinner className="w-8 h-8 text-primary" />
@@ -384,33 +398,43 @@ export default function DashboardPage() {
                 <EEGWaveform 
                   data={sensorData.eeg} 
                   mode={signalType}
+                  megData={signalType === 'enhanced' ? megData : null}
                 />
-                <h3 className="text-sm font-medium mb-4">Frequency Bands</h3>
                 <FrequencyBandsChart data={frequencyBands} />
-                {(
-                  
-                  <div className="absolute bottom-20 left-6 bg-gray/50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium mb-2 font-space">Signal Quality</h4>
-                    <div className="flex gap-1">
-                      {Array(5).fill(0).map((_, i) => (
-                        <div 
-                          key={i}
-                          className="w-1 h-4 bg-primary/60 rounded-full"
-                          style={{ opacity: (i + 1) * 0.2 }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>
         </div>
 
-        <div className="absolute bottom-6 left-6 z-10">
-          <h1 className={`${jetbrains.className} text-sm text-muted-foreground/60`}>
-            Made by <span className='underscore'>Wavelet_</span> with ❤️
-          </h1>
+        {/* Controls - Now at Bottom */}
+        <div className="absolute bottom-6 left-6 z-10 flex gap-2">
+          <Button 
+            onClick={toggleStream}
+            variant="outline"
+            size="icon"
+            className="w-10 h-10"
+          >
+            {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+          </Button>
+          
+          <Button 
+            onClick={toggleAudio}
+            variant="outline"
+            size="icon"
+            className="w-10 h-10"
+            disabled={isPaused}
+          >
+            {isAudioEnabled ? (
+              <AnimatedVolumeIcon isPlaying={true} />
+            ) : (
+              <VolumeX className="h-4 w-4" />
+            )}
+          </Button>
+
+          <DownloadModal 
+            sensorData={sensorData}
+            megData={megData}
+          />
         </div>
       </div>
     </SidebarProvider>

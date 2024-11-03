@@ -342,12 +342,25 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
       const value = eegData?.data?.[i]?.value
       if (value !== undefined && value !== 0) {
         const height = Math.abs(value) * options.spikeHeight
+        const normalizedValue = (value + 1) / 2 // Convert from [-1,1] to [0,1]
+        
+        // Create gradient color based on value
+        const color = new THREE.Color()
+        if (value > 0) {
+          // Interpolate from white to red for positive values
+          color.setRGB(1, 1 - normalizedValue, 1 - normalizedValue)
+        } else {
+          // Interpolate from white to green for negative values
+          color.setRGB(1 - Math.abs(normalizedValue), 1, 1 - Math.abs(normalizedValue))
+        }
+
         const spike = new THREE.Mesh(
           spikeBaseGeometry,
           new THREE.MeshPhongMaterial({
-            color: value > 0 ? options.colors.positive : options.colors.negative,
-            emissive: value > 0 ? options.colors.positive : options.colors.negative,
-            emissiveIntensity: 0.5
+            color: color,
+            emissive: color,
+            emissiveIntensity: 0.5,
+            shininess: 30
           })
         )
         spike.scale.y = height

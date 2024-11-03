@@ -2,7 +2,9 @@
 
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts'
 import { ChartTooltipContent } from "@/components/ui/chart-tooltip"
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
+import { Info } from "lucide-react"
+import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const channelConfig = {
   ch1: { label: "AF3", color: "#ff4040", offset: -13 },
@@ -43,28 +45,90 @@ interface EEGData {
 }
 
 export function EEGWaveform({ data, mode = 'raw' }: { data: EEGData, mode?: 'raw' | 'enhanced' }) {
-  const lastValidDataRef = useRef<any[]>([])
+  const accumulatedDataRef = useRef<any[]>([])
+  const smoothingBufferRef = useRef<{ [key: string]: number[] }>({})
   const config = mode === 'raw' ? channelConfig : megChannelConfig
+  const MAX_POINTS = 1000
+  const VISIBLE_POINTS = 200
+  const SMOOTHING_WINDOW = 5 // Number of points to average
 
-  // Transform and store valid data
-  const chartData = data?.data?.length ? data.data.map((_, index) => ({
-    time: index,
-    ...Object.keys(config).reduce((acc, key, chIndex) => ({
-      ...acc,
-      [key]: (data.data[chIndex]?.value || 0) * 2 + config[key].offset
-    }), {})
-  })) : lastValidDataRef.current // Use last valid data when no new data
+  useEffect(() => {
+    if (data?.data?.length) {
+      const timestamp = Date.now()
 
-  // Store valid data for later use
-  if (data?.data?.length) {
-    lastValidDataRef.current = chartData
-  }
+      // Initialize smoothing buffers if needed
+      Object.keys(config).forEach(key => {
+        if (!smoothingBufferRef.current[key]) {
+          smoothingBufferRef.current[key] = []
+        }
+      })
 
-  // Don't return null, instead return the last known state
+      const newPoint = {
+        timestamp,
+        ...Object.keys(config).reduce((acc, key, chIndex) => {
+          const rawValue = (data.data[chIndex]?.value || 0)
+          
+          if (mode === 'enhanced') {
+            // Add value to smoothing buffer
+            smoothingBufferRef.current[key].push(rawValue)
+            
+            // Keep buffer at SMOOTHING_WINDOW size
+            if (smoothingBufferRef.current[key].length > SMOOTHING_WINDOW) {
+              smoothingBufferRef.current[key].shift()
+            }
+            
+            // Calculate smoothed value (moving average)
+            const smoothedValue = smoothingBufferRef.current[key].reduce((sum, val) => sum + val, 0) / 
+              smoothingBufferRef.current[key].length
+            
+            return {
+              ...acc,
+              [key]: smoothedValue * 5 + config[key].offset
+            }
+          } else {
+            return {
+              ...acc,
+              [key]: rawValue * 5 + config[key].offset
+            }
+          }
+        }, {})
+      }
+      
+      accumulatedDataRef.current = [
+        ...accumulatedDataRef.current,
+        newPoint
+      ].slice(-MAX_POINTS)
+    }
+  }, [data, mode, config])
+
+  const now = Date.now()
+  const windowStart = now - (VISIBLE_POINTS * 50)
+  const visibleData = accumulatedDataRef.current.filter(
+    point => point.timestamp >= windowStart
+  )
+
   return (
-    <div className="bg-black rounded-lg p-4 transition-all duration-300">
-      <h3 className="text-sm font-medium mb-4 font-space tracking-tight">
-        {mode === 'raw' ? 'EEG Channels' : 'AI-Derived MEG'}
+    <div className={`
+      bg-black rounded-lg p-4 
+      transition-all duration-500 ease-in-out
+      ${mode === 'enhanced' ? 'scale-[1.02]' : 'scale-100'}
+    `}>
+      <h3 className="text-sm font-medium mb-4 font-space tracking-tight flex items-center gap-2">
+        <span className="transition-all duration-500">
+          {mode === 'raw' ? 'EEG Channels' : 'AI-Derived MEG'}
+        </span>
+        <ShadcnTooltip delayDuration={300}>
+          <TooltipTrigger asChild>
+            <Info className="h-4 w-4 text-muted-foreground/70 cursor-help" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[300px] p-4">
+            {mode === 'raw' ? (
+              <>Real-time electrical signals recorded from 14 sensors placed on the scalp, measuring brain activity at different locations.</>
+            ) : (
+              <>AI-enhanced signals that transform EEG data into MEG-like readings, providing higher spatial resolution and deeper brain activity insights.</>
+            )}
+          </TooltipContent>
+        </ShadcnTooltip>
         {mode === 'enhanced' && (
           <span className="ml-2 text-xs text-primary/60">• High Resolution</span>
         )}
@@ -72,7 +136,7 @@ export function EEGWaveform({ data, mode = 'raw' }: { data: EEGData, mode?: 'raw
       <div className="h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart 
-            data={chartData}
+            data={visibleData}
             margin={{ top: 20, right: 20, bottom: 20, left: 40 }}
           >
             <defs>
@@ -84,7 +148,10 @@ export function EEGWaveform({ data, mode = 'raw' }: { data: EEGData, mode?: 'raw
               ))}
             </defs>
             <XAxis 
-              dataKey="time" 
+              dataKey="timestamp"
+              domain={['dataMin', 'dataMax']}
+              type="number"
+              allowDataOverflow={true}
               tick={false}
               axisLine={{ stroke: 'hsl(var(--border))' }}
               tickLine={false}
@@ -107,15 +174,16 @@ export function EEGWaveform({ data, mode = 'raw' }: { data: EEGData, mode?: 'raw
             {Object.entries(config).map(([key, cfg]) => (
               <Area
                 key={key}
-                type="monotone"
+                type="natural" // Changed to natural interpolation
                 dataKey={key}
                 stroke={cfg.color}
                 fill={`url(#gradient-${key})`}
                 fillOpacity={0.2}
                 strokeWidth={mode === 'enhanced' ? 2 : 1.5}
-                stackId="1"
                 isAnimationActive={true}
                 animationDuration={300}
+                dot={false}
+                connectNulls
               />
             ))}
           </AreaChart>
