@@ -94,7 +94,7 @@ export default function DashboardPage() {
   }
 
   const baseVisualizerOptions = {
-    sensorSize: 0.8,
+    sensorSize: 1.2,
     spikeHeight: 5,
     scale: {
       brain: 20,
@@ -107,8 +107,8 @@ export default function DashboardPage() {
     colors: {
       positive: '#00ff80',
       negative: '#ff8000',
-      sensor: '#808080',  // Gray color
-      sensorRing: '#a0a0a0'  // Lighter gray for ring
+      sensor: '#ff4040',  // Changed to red
+      sensorRing: '#ff6060'  // Lighter red for ring
     }
   }
 
@@ -146,7 +146,7 @@ export default function DashboardPage() {
             sensorData={sensorData}
             options={leftVisualizerOptions}
           />
-          <div className="h-32 p-4 bg-black/5 m-4 rounded-lg">
+          <div className="h-32 p-4 m-16 rounded-lg">
             <EEGWaveform 
               data={leftWaveformData}
               color={leftVisualizerOptions.colors.positive}
@@ -159,7 +159,7 @@ export default function DashboardPage() {
             sensorData={sensorData}
             options={rightVisualizerOptions}
           />
-          <div className="h-32 p-4 bg-black/5 m-4 rounded-lg">
+          <div className="h-32 p-4 m-16 rounded-lg">
             <EEGWaveform 
               data={rightWaveformData}
               color={rightVisualizerOptions.colors.positive}

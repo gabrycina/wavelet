@@ -72,7 +72,7 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
     // Fix aspect ratio calculation
     const aspect = containerRef.current.clientWidth / containerRef.current.clientHeight
     const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000)
-    camera.position.set(0, 150, 0)
+    camera.position.set(-100, 30, 50) 
     camera.lookAt(0, 0, 0)
     cameraRef.current = camera
     
@@ -136,9 +136,9 @@ export function BrainVisualizer({ type, sensorData, options }: BrainVisualizerPr
         brain.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.material = new THREE.MeshPhongMaterial({
-              color: 0xF9F8F8,  // Light gray color
-              transparent: true,
-              opacity: 0.95,
+              color: 0xFFFFFF,  // Light gray color
+              transparent: false,
+              opacity: 1,
               shininess: 20,
               side: THREE.DoubleSide
             })
