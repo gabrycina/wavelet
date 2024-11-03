@@ -8,6 +8,7 @@ class AudioSynthesizer {
   private masterGain: GainNode | null = null
   private mode: 'eeg' | 'meg' = 'eeg'
   private isInitialized: boolean = false
+  private fadeTime = 0.5 // 500ms fade duration
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -167,11 +168,32 @@ class AudioSynthesizer {
     console.log('Starting audio synthesis')
     this.audioContext?.resume()
     this.initializeOscillators()
+    
+    // Fade in
+    if (this.masterGain) {
+      this.masterGain.gain.setValueAtTime(0, this.audioContext!.currentTime)
+      this.masterGain.gain.linearRampToValueAtTime(
+        0.3, // Target volume
+        this.audioContext!.currentTime + this.fadeTime
+      )
+    }
   }
 
   stop() {
     console.log('Stopping audio synthesis')
-    this.audioContext?.suspend()
+    
+    // Fade out
+    if (this.masterGain && this.audioContext) {
+      this.masterGain.gain.linearRampToValueAtTime(
+        0,
+        this.audioContext.currentTime + this.fadeTime
+      )
+      
+      // Suspend context after fade
+      setTimeout(() => {
+        this.audioContext?.suspend()
+      }, this.fadeTime * 1000)
+    }
   }
 }
 
