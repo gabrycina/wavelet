@@ -1,4 +1,4 @@
-# Wavelet Platform 🌊
+# Wavelet 🌊🧠
 
 Wavelet is a transformer based custom model that enables real-time EEG to AI-Derived MEG brain waves enhancing.
 
