@@ -40,5 +40,5 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## Some Credits and mentions
 - This data was obtained from the [OpenfMRI database](https://openfmri.org/dataset/ds000117/). Its accession number is ds000117.
 - Perri Karyal (her work on EEG gaming is incredible,[check it out](https://www.youtube.com/@perrikaryal)) and Charles Cumpsty for lending us the EEG equipment!
-- [Tim](https://github.com/timfarkas) and [Gleb](https://github.com/ProjectGleb) for letting us explore more their initial [BrainTransform](https://github.com/timfarkas/BrainTransform) ❤️
+- [Tim](https://github.com/timfarkas) and [Gleb](https://github.com/ProjectGleb) for letting us explore more their initial idea: [BrainTransform](https://github.com/timfarkas/BrainTransform) ❤️
 - Nebius for offering the Nvidia H100s used!
